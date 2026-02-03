@@ -1,16 +1,14 @@
-
 // Configuración del motor
-generator client{
-  provider = "prisma-client-js";
+generator client {
+  provider = "prisma-client-js"
 }
 
-datasource db{
-  provider  = "postgresql"
-  url = env("DATABASE_URL")
+datasource db {
+  provider = "postgresql"
 }
 
-//1. INVENTARIO
-model Product{
+// 1. INVENTARIO
+model Product {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?
@@ -21,24 +19,24 @@ model Product{
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items       OrderItem[] //Relación con las ventas
+  items       OrderItem[]
 }
 
-//2. MESAS
-model Table{
-  id          Int      @id @default(autoincrement())
-  number      Int      @unique
-  capacity    Int
-  status      String   @default("AVAILABLE) //AVAILABLE, OCCUPIED, RESERVED
+// 2. MESAS
+model Table {
+  id        Int      @id @default(autoincrement())
+  number    Int      @unique
+  capacity  Int
+  status    String   @default("AVAILABLE")
 
-  orders      Order[]
+  orders    Order[]
 }
 
-//3. PEDIDOS / FACTURAS
-model Order{
+// 3. PEDIDOS / FACTURAS
+model Order {
   id          Int         @id @default(autoincrement())
   tableId     Int
-  status      String      @default("PENDING") // PENDING, PAID, CANCELLED
+  status      String      @default("PENDING")
   total       Float       @default(0)
   createdAt   DateTime    @default(now())
 
@@ -46,15 +44,14 @@ model Order{
   items       OrderItem[]
 }
 
-// 4. DETALLE DE LA VENTA (Lo que une productos con pedidos)
+// 4. DETALLE DE LA VENTA
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
   productId Int
   quantity  Int
-  price     Float   // Guardamos el precio del momento de la venta
+  price     Float
 
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
-
 }
