@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: Guadalupe24*
+      POSTGRES_PASSWORD: Guadalupe24
       POSTGRES_DB: gestion_negocio
     ports:
       - "5432:5432"
