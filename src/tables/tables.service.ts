@@ -40,7 +40,22 @@ export class TablesService {
     });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} table`;
+  async remove(id: number) {
+    // Verificamos que exista antes de desactivarla
+    await this.findOne(id);
+
+    return await this.prisma.table.update({
+      where: {id},
+      data: { isActive: false},
+    });
+  }
+
+  async findOccupied(){
+    return await this.prisma.table.findMany({
+      where:{
+        status: 'OCCUPIED',
+        isActive: true,
+      }
+    });
   }
 }

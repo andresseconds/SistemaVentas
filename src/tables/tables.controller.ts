@@ -12,9 +12,15 @@ export class TablesController {
     return this.tablesService.create(createTableDto);
   }
 
+  // Las rutas estaticas deben ir antes de las dinámicas
   @Get()
   findAll() {
     return this.tablesService.findAll();
+  }
+
+  @Get('occupied')
+  findOccupied(){
+    return this.tablesService.findOccupied();
   }
 
   @Get(':id')
