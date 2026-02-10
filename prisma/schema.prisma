@@ -42,22 +42,31 @@ model Table {
 model Order {
   id          Int         @id @default(autoincrement())
   tableId     Int
-  status      String      @default("PENDING")
-  total       Float       @default(0)
-  createdAt   DateTime    @default(now())
-
   table       Table       @relation(fields: [tableId], references: [id])
-  items       OrderItem[]
+  items       OrderItem[] // Relación con los productos específicos
+  total       Float       @default(0)
+  status      OrderStatus @default(PENDING)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-// 4. DETALLE DE LA VENTA
+// 4. ITEMS DE LA ORDEN
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
-  productId Int
-  quantity  Int
-  price     Float
-
   order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
   product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float   // Guardamos el precio del momento de la venta
+}
+
+// 5. ESTADO DE LA ORDEN
+enum OrderStatus {
+  PENDING
+  PREPARING
+  DELIVERED
+  PAID
+  CANCELLED
 }
