@@ -12,6 +12,16 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
+  @Get('pending/kitchen')
+  findAllPending(){
+    return this.ordersService.findAllPending();
+  }
+
+  @Get('reports/today')
+  getTodaySales(){
+    return this.ordersService.getTodaySales();
+  }
+  
   @Get()
   findAll() {
     return this.ordersService.findAll();

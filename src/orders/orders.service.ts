@@ -5,32 +5,36 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService){}
+  constructor(private prisma: PrismaService) { }
 
   async create(createOrderDto: CreateOrderDto) {
-    const {tableId, items} = createOrderDto;
+    const { tableId, items } = createOrderDto;
 
     // 1. Validar que la mesa existe y está activa
     const table = await this.prisma.table.findUnique({
-      where: { id:tableId },
+      where: { id: tableId },
     });
 
-    if (!table || !table.isActive){
-      throw new   NotFoundException(`La mesa con ID ${tableId} no existe o está inactiva.`);
+    if (!table || !table.isActive) {
+      throw new NotFoundException(`La mesa con ID ${tableId} no existe o está inactiva.`);
     }
-    
+
+    if (table.status === 'OCCUPIED') {
+      throw new BadRequestException(`La mesa ${tableId} ya esta ocupada. Debes cerrar la orden anterior para poder crear una nueva.`)
+    }
+
     // 2. Iniciar transacción
-    return await this.prisma.$transaction(async (tx) =>{
+    return await this.prisma.$transaction(async (tx) => {
       let totalAmount = 0;
       const orderItemsData: { productId: number; quantity: number; price: number }[] = [];
 
       // 3. Procesar cada producto para obtener su precio actual
-      for(const item of items){
+      for (const item of items) {
         const product = await tx.product.findUnique({
-          where: { id: item.productId},
+          where: { id: item.productId },
         });
 
-        if(!product || !product.isActive){
+        if (!product || !product.isActive) {
           throw new NotFoundException(`Producto con ID ${item.productId} no encontrado`);
         }
 
@@ -44,10 +48,10 @@ export class OrdersService {
           price: product.price, // Guardamos el precio del momento
         });
       }
-      
+
       // 4. Crear la orden y sus detalles
       const order = await tx.order.create({
-        data:{
+        data: {
           tableId: table.id,
           total: totalAmount,
           status: 'PENDING',
@@ -55,23 +59,47 @@ export class OrdersService {
             create: orderItemsData,
           },
         },
-        include:{
+        include: {
           items: true, // Para que la respuesta incluya los productos
         }
-      }); 
+      });
 
       //. 5 Actualizar el estado de la mesa a OCUPADA
       await tx.table.update({
-        where: { id: table.id},
-        data: {status: 'OCCUPIED'},
+        where: { id: table.id },
+        data: { status: 'OCCUPIED' },
       });
-      
+
       return order;
     });
   }
 
   findAll() {
     return `This action returns all orders`;
+  }
+
+  async findAllPending() {
+    return await this.prisma.order.findMany({
+      where: {
+        status: {
+          in: ['PENDING', 'PREPARING'] //Solo lo que esta en la cola 
+        },
+        isActive: true
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { name: true, category: true } // Solo lo que la cocina necesita
+            }
+          }
+        },
+        table: {
+          select: { number: true, description: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' } // La mas antigua primero (FIFO)
+    });
   }
 
   findOne(id: number) {
@@ -83,10 +111,10 @@ export class OrdersService {
 
     // 1. Verificar si la orden existe e incluir la mesa
     const order = await this.prisma.order.findUnique({
-      where: {id},
+      where: { id },
     });
 
-    if(!order){
+    if (!order) {
       throw new NotFoundException(`Orden con ID ${id} no encontrada`);
     }
 
@@ -94,26 +122,26 @@ export class OrdersService {
     return await this.prisma.$transaction(async (tx) => {
       // Actualizar la orden
       const updatedOrder = await tx.order.update({
-        where: {id},
+        where: { id },
         data: {
           status: status,
         }
       });
 
       // 3. Si el nuevo estado es 'PAID' o 'CANCELLED', liberar mesa
-      if(updateOrderDto.status === 'PAID' || updateOrderDto.status === 'CANCELLED'){
+      if (updateOrderDto.status === 'PAID' || updateOrderDto.status === 'CANCELLED') {
         await tx.table.update({
-          where: {id: order.tableId},
-          data: {status: 'AVAILABLE'},
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' },
         });
       }
 
       // 4. Si el estado cambia a 'PREPARING' o 'DELIVERED',
       // podriamos asegurar que la mesa siga 'OCCUPIED'
-      if (updateOrderDto.status === 'PREPARING' || updateOrderDto.status === 'DELIVERED'){
+      if (updateOrderDto.status === 'PREPARING' || updateOrderDto.status === 'DELIVERED') {
         await tx.table.update({
-          where: {id: order.tableId},
-          data: {status: 'OCCUPIED'},
+          where: { id: order.tableId },
+          data: { status: 'OCCUPIED' },
         });
       }
 
@@ -124,4 +152,26 @@ export class OrdersService {
   remove(id: number) {
     return `This action removes a #${id} order`;
   }
+
+  async getTodaySales() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0) // Inicio del día
+
+    const sales = await this.prisma.order.findMany({
+      where: {
+        status: 'PAID',
+        createdAt: { gte: today } // Ventas desde las 00:00 de hoy
+      }
+    });
+
+    const totalEarnings = sales.reduce((sum, order) => sum + order.total, 0);
+
+    return {
+      date: today,
+      count: sales.length,
+      total: totalEarnings,
+      currency: 'COP' // Moneda local
+    };
+  }
+
 }
