@@ -38,6 +38,21 @@ export class OrdersService {
           throw new NotFoundException(`Producto con ID ${item.productId} no encontrado`);
         }
 
+        // Validar si hay suficiente stock
+        if(product.stock < item.quantity){
+          throw new BadRequestException(`Stock induficiente para ${product.name}. Disponibles: ${product.stock}, Solicitados: ${item.quantity}`);
+        }
+
+        // Restar el stock
+        await tx.product.update({
+          where: {id: item.productId},
+          data:{
+            stock:{
+              decrement: item.quantity // Prisma hace la resta automaticamente
+            }
+          }
+        });
+
         const subtotal = product.price * item.quantity;
         totalAmount += subtotal;
 
