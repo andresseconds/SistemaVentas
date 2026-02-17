@@ -176,15 +176,42 @@ export class OrdersService {
       where: {
         status: 'PAID',
         createdAt: { gte: today } // Ventas desde las 00:00 de hoy
+      },
+      include:{
+        table: true //Incluye la tabla "table" y trae todo lo que hay en ella
       }
     });
 
     const totalEarnings = sales.reduce((sum, order) => sum + order.total, 0);
 
+    const salesByTable = sales.reduce((acc, order) =>{
+      const tableName = order.table.number; // Sacamos el nombre (gracias añ include
+      const currentTotal = order.total;     // Lo que gasto en esta orden
+
+      // Si la mesa aun no esta en nuestra lista, la anotamos con 0
+      if(!acc[tableName]){
+        acc[tableName] = 0;
+      }
+
+      // Sumamos el gasto de esta orden al total que ya llevaba la mesa
+      acc[tableName] += currentTotal;
+      
+      return acc;
+    }, {} as Record<string, number>);
+
+    let topTable = {name: 'Ninguna', total: 0};
+    
+    for(const name in salesByTable){
+      if(salesByTable[name] > topTable.total){
+        topTable = {name: name, total: salesByTable[name]}
+      }
+    }
+
     return {
       date: today,
       count: sales.length,
       total: totalEarnings,
+      bestSellingTable: topTable, // Mesa que mas vendio
       currency: 'COP' // Moneda local
     };
   }
