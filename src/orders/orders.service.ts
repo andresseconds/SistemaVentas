@@ -168,14 +168,33 @@ export class OrdersService {
     return `This action removes a #${id} order`;
   }
 
-  async getTodaySales() {
+  async getSalesDetail(startDate?: string, endDate?: string) {
+    //1. Lógica para definir rango
+    // Si no mandan fecha, por defecto es hoy
+    const start = startDate ? new Date(`${startDate}T00:00:00-05:00`): new Date();
+    const end = endDate ? new Date(`${endDate}T23:59:59-05:00`): new Date();
     const today = new Date();
-    today.setHours(0, 0, 0, 0) // Inicio del día
+    
 
+    // Valida que la fecha inicial no sea mayor a la fecha fin 
+    if(start > end){
+      throw new BadRequestException('La fecha de inicio no puede ser posterior a la fecha de fin');
+    }else if(end > today){
+      throw new BadRequestException('La fecha final no puede ser superior a hoy');
+    }
+
+    // Ajuste de horas para cubrir el dia completo
+    start.setHours(0, 0, 0, 0) // Inicio del día
+    end.setHours(23,59,59,999);
+
+    //2. Consulta a prisma con rango
     const sales = await this.prisma.order.findMany({
       where: {
         status: 'PAID',
-        createdAt: { gte: today } // Ventas desde las 00:00 de hoy
+        createdAt: { 
+          gte: start,
+          lte: end,
+         },
       },
       include: {
         table: true //Incluye la tabla "table" y trae todo lo que hay en ella
@@ -183,7 +202,7 @@ export class OrdersService {
     });
 
     const stats = sales.reduce((acc, order) => {
-      acc.totalMoney += order.total;
+      acc.totalMoney += order.total; 
       acc.totalOrders += 1;
       return acc;
     }, { totalMoney: 0, totalOrders: 0 });
@@ -196,7 +215,7 @@ export class OrdersService {
     //const totalEarnings = sales.reduce((sum, order) => sum + order.total, 0);
 
     const salesByTable = sales.reduce((acc, order) => {
-      const tableName = order.table.number; // Sacamos el nombre (gracias añ include
+      const tableName = order.table.number; // Sacamos el nombre (gracias al include
       const currentTotal = order.total;     // Lo que gasto en esta orden
 
       // Si la mesa aun no esta en nuestra lista, la anotamos con 0
@@ -219,7 +238,8 @@ export class OrdersService {
     }
 
     return {
-      date: today,
+      startDate: start,
+      endDate: end,
       count: stats.totalOrders, // Usamos el dato del reduce
       total: stats.totalMoney,  // Usamos el dato del reduce
       averageTicket: Number(averageTicket.toFixed(2)), // Deja máximo dos decimales

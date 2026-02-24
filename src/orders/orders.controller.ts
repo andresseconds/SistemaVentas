@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -17,9 +17,12 @@ export class OrdersController {
     return this.ordersService.findAllPending();
   }
 
-  @Get('reports/today')
-  getTodaySales(){
-    return this.ordersService.getTodaySales();
+  @Get('reports/sales')
+  getSalesReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ){
+    return this.ordersService.getSalesDetail(startDate, endDate);
   }
   
   @Get()
