@@ -127,6 +127,7 @@ export class OrdersService {
     // 1. Verificar si la orden existe e incluir la mesa
     const order = await this.prisma.order.findUnique({
       where: { id },
+      include: { items: true} //Incluye los elementos de la orden
     });
 
     if (!order) {
@@ -135,32 +136,39 @@ export class OrdersService {
 
     // 2. Iniciar transacción para asegurar consistencia
     return await this.prisma.$transaction(async (tx) => {
-      // Actualizar la orden
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: {
-          status: status,
+      // Lógica de STOCK
+      // Solo devolvemos stock si pasa a CANCELLED y no estaba cancelada antes
+      if(status === 'CANCELLED' && order.status !== 'CANCELLED'){
+        for(const item of order.items){
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { 
+              stock: { 
+                increment: item.quantity
+              }
+            },
+          });
         }
-      });
+      }
 
       // 3. Si el nuevo estado es 'PAID' o 'CANCELLED', liberar mesa
-      if (updateOrderDto.status === 'PAID' || updateOrderDto.status === 'CANCELLED') {
+      if (status === 'PAID' || status === 'CANCELLED') {
         await tx.table.update({
           where: { id: order.tableId },
           data: { status: 'AVAILABLE' },
         });
-      }
-
-      // 4. Si el estado cambia a 'PREPARING' o 'DELIVERED',
-      // podriamos asegurar que la mesa siga 'OCCUPIED'
-      if (updateOrderDto.status === 'PREPARING' || updateOrderDto.status === 'DELIVERED') {
+      }else if (status === 'PREPARING' || status === 'DELIVERED') {
         await tx.table.update({
           where: { id: order.tableId },
           data: { status: 'OCCUPIED' },
         });
       }
 
-      return updatedOrder;
+      // 4. Actualizar la orden y retornar
+      return await tx.order.update({
+        where: { id },
+        data: { status },
+      });
     });
   }
 
