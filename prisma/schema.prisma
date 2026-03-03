@@ -7,8 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
-
 // 1. INVENTARIO
 model Product {
   id          Int      @id @default(autoincrement())
@@ -21,7 +19,8 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items       OrderItem[]
+  items         OrderItem[]
+  inventoryLogs InventoryLog[]
 }
 
 // 2. MESAS
@@ -35,20 +34,20 @@ model Table {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  orders    Order[]
+  orders Order[]
 }
 
 // 3. PEDIDOS / FACTURAS
 model Order {
-  id          Int         @id @default(autoincrement())
-  tableId     Int
-  table       Table       @relation(fields: [tableId], references: [id])
-  items       OrderItem[] // Relación con los productos específicos
-  total       Float       @default(0)
-  status      OrderStatus @default(PENDING)
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        Int         @id @default(autoincrement())
+  tableId   Int
+  table     Table       @relation(fields: [tableId], references: [id])
+  items     OrderItem[] // Relación con los productos específicos
+  total     Float       @default(0)
+  status    OrderStatus @default(PENDING)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 // 4. ITEMS DE LA ORDEN
@@ -59,7 +58,7 @@ model OrderItem {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
-  price     Float   // Guardamos el precio del momento de la venta
+  price     Float // Guardamos el precio del momento de la venta
 }
 
 // 5. ESTADO DE LA ORDEN
@@ -69,4 +68,22 @@ enum OrderStatus {
   DELIVERED
   PAID
   CANCELLED
+}
+
+// 6. AGREGA TIPO DE MOVIMIENTOS POSIBLES
+enum MovementType {
+  SALE // Resta  por venta
+  MANUAL_ADJUST // Suma/Resta por el administrador
+  CANCELLATION // Suma por orden cancelada 
+}
+
+// 7. HISTORIAL DE CAMBIOS EN INVENTARIO
+model InventoryLog {
+  id        Int          @id @default(autoincrement())
+  productId Int
+  product   Product      @relation(fields: [productId], references: [id])
+  quantity  Int // Cuánto se movió (ej: -2, +10)
+  type      MovementType
+  reason    String? // Por qué ocurrió (ej: "Venta Mesa 5", "Merma", "Proveedor")
+  createdAt DateTime     @default(now())
 }
