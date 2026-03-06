@@ -8,7 +8,7 @@ export class OrdersService {
   constructor(private prisma: PrismaService) { }
 
   async create(createOrderDto: CreateOrderDto) {
-    const { tableId, items } = createOrderDto;
+    const { tableId, items } = createOrderDto; // Es lo mismo que const tableId = createOrderDto.tableId;
 
     // 1. Validar que la mesa existe y está activa
     const table = await this.prisma.table.findUnique({
@@ -53,8 +53,19 @@ export class OrdersService {
           }
         });
 
-        const subtotal = product.price * item.quantity;
-        totalAmount += subtotal;
+        // Crear el LOG de inventario (kardex)
+        // Nota: Quantity va en negativo porque es una salida por venta
+        await tx.inventoryLog.create({
+          data: {
+            productId: product.id,
+            quantity: -item.quantity, //Se envia el dremento para simular la venta de un producto
+            type: 'SALE',
+            reason: `Venta - Mesa ${tableId}`, //Se puede mejorar luego con ID de la orden
+          },
+        });
+
+        // Se acumula el total de la factura segun la cantidad de items 
+        totalAmount += product.price * item.quantity;
 
         // Preparamos los datos del detalle
         orderItemsData.push({
@@ -69,7 +80,7 @@ export class OrdersService {
         data: {
           tableId: table.id,
           total: totalAmount,
-          status: 'PENDING',
+          status: 'PENDING', //Crea la oreden en esatdo pendiente
           items: {
             create: orderItemsData,
           },
@@ -82,10 +93,10 @@ export class OrdersService {
       //. 5 Actualizar el estado de la mesa a OCUPADA
       await tx.table.update({
         where: { id: table.id },
-        data: { status: 'OCCUPIED' },
+        data: { status: 'OCCUPIED' }, //Cambia el estado de la mesa a ocupado apra que no se pueda ordenar mientras se encuentre en dicho estado
       });
 
-      return order;
+      return order; //Retorna el valor obtenido de la transacción de la linea 27
     });
   }
 
@@ -117,8 +128,16 @@ export class OrdersService {
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} order`;
+  async findOne(id: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id }
+    });
+
+    if (!order) {
+      throw new NotFoundException(`La orden #${id}, no fue encontrada o no existe.`);
+    }
+
+    return order;
   }
 
   async update(id: number, updateOrderDto: UpdateOrderDto) {
@@ -127,7 +146,7 @@ export class OrdersService {
     // 1. Verificar si la orden existe e incluir la mesa
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true} //Incluye los elementos de la orden
+      include: { items: true } //Incluye los elementos de la orden
     });
 
     if (!order) {
@@ -138,16 +157,31 @@ export class OrdersService {
     return await this.prisma.$transaction(async (tx) => {
       // Lógica de STOCK
       // Solo devolvemos stock si pasa a CANCELLED y no estaba cancelada antes
-      if(status === 'CANCELLED' && order.status !== 'CANCELLED'){
-        for(const item of order.items){
+      if (status === 'CANCELLED' && order.status !== 'CANCELLED') {
+        for (const item of order.items) {
+
+          //A. Incrementar el stock físico
           await tx.product.update({
             where: { id: item.productId },
-            data: { 
-              stock: { 
-                increment: item.quantity
-              }
+            data: {
+              stock: { increment: item.quantity }
             },
           });
+
+          // B. Crear el LOG de cancelación (kardex)
+          // Cantidad positiva porque el producto RE-ENTRA al inventario
+          if (order.status !== 'PAID') {
+            await tx.inventoryLog.create({
+              data: {
+                productId: item.productId,
+                quantity: item.quantity,
+                type: 'CANCELLATION',
+                reason: `Order #${id}, cancelada - Devolución de productos`,
+              }
+            });
+          }else{
+            throw new BadRequestException(`La orden #${id}, ya ha sido pagada y no se puede cancelar.`)
+          }
         }
       }
 
@@ -157,7 +191,7 @@ export class OrdersService {
           where: { id: order.tableId },
           data: { status: 'AVAILABLE' },
         });
-      }else if (status === 'PREPARING' || status === 'DELIVERED') {
+      } else if (status === 'PREPARING' || status === 'DELIVERED') {
         await tx.table.update({
           where: { id: order.tableId },
           data: { status: 'OCCUPIED' },
@@ -179,30 +213,30 @@ export class OrdersService {
   async getSalesDetail(startDate?: string, endDate?: string) {
     //1. Lógica para definir rango
     // Si no mandan fecha, por defecto es hoy
-    const start = startDate ? new Date(`${startDate}T00:00:00-05:00`): new Date();
-    const end = endDate ? new Date(`${endDate}T23:59:59-05:00`): new Date();
+    const start = startDate ? new Date(`${startDate}T00:00:00-05:00`) : new Date();
+    const end = endDate ? new Date(`${endDate}T23:59:59-05:00`) : new Date();
     const today = new Date();
-    
+
 
     // Valida que la fecha inicial no sea mayor a la fecha fin 
-    if(start > end){
+    if (start > end) {
       throw new BadRequestException('La fecha de inicio no puede ser posterior a la fecha de fin');
-    }else if(end > today){
+    } else if (end > today) {
       throw new BadRequestException('La fecha final no puede ser superior a hoy');
     }
 
     // Ajuste de horas para cubrir el dia completo
     start.setHours(0, 0, 0, 0) // Inicio del día
-    end.setHours(23,59,59,999);
+    end.setHours(23, 59, 59, 999);
 
     //2. Consulta a prisma con rango
     const sales = await this.prisma.order.findMany({
       where: {
         status: 'PAID',
-        createdAt: { 
+        createdAt: {
           gte: start,
           lte: end,
-         },
+        },
       },
       include: {
         table: true //Incluye la tabla "table" y trae todo lo que hay en ella
@@ -210,7 +244,7 @@ export class OrdersService {
     });
 
     const stats = sales.reduce((acc, order) => {
-      acc.totalMoney += order.total; 
+      acc.totalMoney += order.total;
       acc.totalOrders += 1;
       return acc;
     }, { totalMoney: 0, totalOrders: 0 });
