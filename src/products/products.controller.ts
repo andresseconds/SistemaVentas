@@ -30,6 +30,22 @@ export class ProductsController {
     return this.productsService.getProductLogs(id);
   }
 
+  /****************************************************
+   * Nombre: Alerta de stock bajo                     *
+   * Descripción: EndPoint para el consumo del API    *
+   * Autor:  John Andrés Arévalo Rodríguez            *
+   * Fecha:  09-03-2026                               *          
+   * Rama:   feat/inventory-low-stock-alerts          *
+   * ------------------------------------------------ *
+   * Fecha      | Usuario    | Observación            *
+   * ------------------------------------------------ *
+   * 09-03-2025 | jaarevalo  | Creación               *
+   ****************************************************/
+  @Get('inventory/alerts')
+  getAlerts(){
+    return this.productsService.getSlowStockAlerts();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(+id);

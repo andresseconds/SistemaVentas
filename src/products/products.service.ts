@@ -128,4 +128,25 @@ export class ProductsService {
       }
     });
   }
+
+  /************************************************************************
+   * Nombre: Obtener stock bajo                                           *
+   * Descripción: Obtiene los productos que se encuentran a punto         *
+   *              de acabarse en el stock de inventario.                  *
+   * Autor:  John Andrés Arévalo Rodríguez                                *
+   * Fecha:  09-03-2026                                                   *          
+   * Rama:   feat/inventory-low-stock-alerts                              *
+   * ---------------------------------------------------------------------*
+   * Fecha      | Usuario    | Observación                                *
+   * ---------------------------------------------------------------------*
+   * 09-03-2025 | jaarevalo  | Creación                                   *
+   ************************************************************************/
+  async getSlowStockAlerts(){
+    const products = await this.prisma.product.findMany({
+    where: { isActive: true }
+  });
+
+  // Filtramos en memoria para comparar campo contra campo fácilmente
+  return products.filter(p => p.stock <= p.minStock);
+  }
 }
