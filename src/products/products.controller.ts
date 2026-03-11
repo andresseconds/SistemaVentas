@@ -46,6 +46,22 @@ export class ProductsController {
     return this.productsService.getProfitabilityReport();
   }
 
+   /****************************************************
+   * Nombre: Reporte de rentabilidadpor producto                 
+   * Descripción: EndPoint para el consumo del API    
+   * Autor:  John Andrés Arévalo Rodríguez            
+   * Fecha:  10-03-2026                                         
+   * Rama:   feat/single-product-profitability               
+   * ------------------------------------------------ 
+   * Fecha      | Usuario    | Observación            
+   * ------------------------------------------------ 
+   * 10-03-2025 | jaarevalo  | Creación               
+   ****************************************************/
+  @Get(':id/profitability')
+  getProductProfitability(@Param('id', ParseIntPipe) id: number){
+    return this.productsService.getSingleProductProfitability(id);
+  }
+
   /****************************************************
    * Nombre: Alerta de stock bajo                     *
    * Descripción: EndPoint para el consumo del API    *

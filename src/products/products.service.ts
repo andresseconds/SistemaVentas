@@ -185,4 +185,53 @@ export class ProductsService {
       };
     }).sort((a,b) => b.profitPerUnit -  a.profitPerUnit); // Ordenar por los mas rentables
   }
+
+  /************************************************************************
+   * Nombre: Obtener reporte de rentabilidad por producto                 *
+   * Descripción: Obtiene el reporte de rentabilidad según el producto.   *
+   *                                                                      *
+   * Autor:  John Andrés Arévalo Rodríguez                                *
+   * Fecha:  10-03-2026                                                   *          
+   * Rama:   feat/single-product-profitability                            *
+   * ---------------------------------------------------------------------*
+   * Fecha      | Usuario    | Observación                                *
+   * ---------------------------------------------------------------------*
+   * 10-03-2025 | jaarevalo  | Creación                                   *
+   ************************************************************************/
+  async getSingleProductProfitability(id: number){
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: {
+        name: true,
+        price: true,
+        cost: true, 
+        stock: true 
+      }  
+    });
+
+    if(!product){
+      throw new NotFoundException(`Producto con ID ${id}, no econtrado.`);
+    }
+
+    const profit = product.price - product.cost;
+    const marginPercentage = product.price > 0 ? (profit / product.price) * 100 : 0;
+
+    //Dato extra: Cuanto dinero hay en stock de este producto
+    const totalInventoryValue = product.stock * product.cost;
+
+    return{
+      product: product.name,
+      metrics: {
+        unitPrice: product.price,
+        unitCost: product.cost,
+        profitPerUnit: profit,
+        margin: `${marginPercentage.toFixed(2)}%`,
+      },
+      inventory:{
+        currentStock: product.stock,
+        investmentInStock: totalInventoryValue,
+        potentialTotalProfit: product.stock * profit //Lo que se ganara cuando se venda ese stock
+      }
+    };
+  }
 }
