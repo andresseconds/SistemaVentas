@@ -16,11 +16,12 @@ model Product {
   cost        Float    @default(0)
   stock       Int      @default(0)
   minStock    Int      @default(5)
-  category    String
+  categoryId  Int
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  category      Category     @relation(fields: [categoryId], references: [id])
   items         OrderItem[]
   inventoryLogs InventoryLog[]
   // Un producto puede ser un ingrediente en muchas recetas
@@ -29,7 +30,14 @@ model Product {
   recipe        RecipeItem[]  @relation("MainProduct")
 }
 
-// 2. MESAS
+// 2. CATEGORIA
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+// 3. MESAS
 model Table {
   id          Int      @id @default(autoincrement())
   number      String   @unique // Ej: "Mesa 1", "Barra 2"
@@ -43,7 +51,7 @@ model Table {
   orders Order[]
 }
 
-// 3. PEDIDOS / FACTURAS
+// 4. PEDIDOS / FACTURAS
 model Order {
   id        Int         @id @default(autoincrement())
   tableId   Int
@@ -56,7 +64,7 @@ model Order {
   updatedAt DateTime    @updatedAt
 }
 
-// 4. ITEMS DE LA ORDEN
+// 5. ITEMS DE LA ORDEN
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
@@ -67,7 +75,7 @@ model OrderItem {
   price     Float // Guardamos el precio del momento de la venta
 }
 
-// 5. ESTADO DE LA ORDEN
+// 6. ESTADO DE LA ORDEN
 enum OrderStatus {
   PENDING
   PREPARING
@@ -76,14 +84,14 @@ enum OrderStatus {
   CANCELLED
 }
 
-// 6. AGREGA TIPO DE MOVIMIENTOS POSIBLES
+// 7. AGREGA TIPO DE MOVIMIENTOS POSIBLES
 enum MovementType {
   SALE // Resta  por venta
   MANUAL_ADJUST // Suma/Resta por el administrador
   CANCELLATION // Suma por orden cancelada 
 }
 
-// 7. HISTORIAL DE CAMBIOS EN INVENTARIO
+// 8. HISTORIAL DE CAMBIOS EN INVENTARIO
 model InventoryLog {
   id        Int          @id @default(autoincrement())
   productId Int
@@ -94,7 +102,7 @@ model InventoryLog {
   createdAt DateTime     @default(now())
 }
 
-// 8. Receta
+// 9. Receta
 model RecipeItem{
   id            Int     @id @default(autoincrement())
   
