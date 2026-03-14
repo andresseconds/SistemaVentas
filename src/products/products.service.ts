@@ -129,18 +129,8 @@ export class ProductsService {
     });
   }
 
-  /************************************************************************
-   * Nombre: Obtener stock bajo                                           *
-   * Descripción: Obtiene los productos que se encuentran a punto         *
-   *              de acabarse en el stock de inventario.                  *
-   * Autor:  John Andrés Arévalo Rodríguez                                *
-   * Fecha:  09-03-2026                                                   *          
-   * Rama:   feat/inventory-low-stock-alerts                              *
-   * ---------------------------------------------------------------------*
-   * Fecha      | Usuario    | Observación                                *
-   * ---------------------------------------------------------------------*
-   * 09-03-2025 | jaarevalo  | Creación                                   *
-   ************************************************************************/
+
+  // Obtener stock bajo                                           
   async getSlowStockAlerts(){
     const products = await this.prisma.product.findMany({
     where: { isActive: true }
@@ -150,18 +140,7 @@ export class ProductsService {
   return products.filter(p => p.stock <= p.minStock);
   }
 
-  /************************************************************************
-   * Nombre: Obtener reporte de rentabilidad                              *
-   * Descripción: Obtiene el reporte de los productos con más             *
-   *              rentabilidad.                                           *
-   * Autor:  John Andrés Arévalo Rodríguez                                *
-   * Fecha:  10-03-2026                                                   *          
-   * Rama:   feat/product-profitability                                   *
-   * ---------------------------------------------------------------------*
-   * Fecha      | Usuario    | Observación                                *
-   * ---------------------------------------------------------------------*
-   * 10-03-2025 | jaarevalo  | Creación                                   *
-   ************************************************************************/
+  // Obtener reporte de rentabilidad                             
   async getProfitabilityReport(){
     const products = await this.prisma.product.findMany({
       where: { isActive: true },
@@ -186,18 +165,8 @@ export class ProductsService {
     }).sort((a,b) => b.profitPerUnit -  a.profitPerUnit); // Ordenar por los mas rentables
   }
 
-  /************************************************************************
-   * Nombre: Obtener reporte de rentabilidad por producto                 *
-   * Descripción: Obtiene el reporte de rentabilidad según el producto.   *
-   *                                                                      *
-   * Autor:  John Andrés Arévalo Rodríguez                                *
-   * Fecha:  10-03-2026                                                   *          
-   * Rama:   feat/single-product-profitability                            *
-   * ---------------------------------------------------------------------*
-   * Fecha      | Usuario    | Observación                                *
-   * ---------------------------------------------------------------------*
-   * 10-03-2025 | jaarevalo  | Creación                                   *
-   ************************************************************************/
+  
+  // Obtener reporte de rentabilidad por producto                 
   async getSingleProductProfitability(id: number){
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -235,18 +204,7 @@ export class ProductsService {
     };
   }
 
-  /************************************************************************
-   * Nombre: Agregar receta a producto                                    *
-   * Descripción: Agrega la receta a un producto, si es necesario.        *
-   *                                                                      *
-   * Autor:  John Andrés Arévalo Rodríguez                                *
-   * Fecha:  12-03-2026                                                   *          
-   * Rama:   feat/product-recipes                                         *
-   * ---------------------------------------------------------------------*
-   * Fecha      | Usuario    | Observación                                *
-   * ---------------------------------------------------------------------*
-   * 12-03-2025 | jaarevalo  | Creación                                   *
-   ************************************************************************/
+  // Agregar receta a producto                                    
   // Agrega uno por uno los ingredientes de un producto
   async addRecipeItem(productId: number, ingredientId: number, quantity: number){
     const item = await this.prisma.recipeItem.upsert({ 
@@ -301,6 +259,19 @@ export class ProductsService {
     return await this.prisma.product.update({
       where: { id: productId },
       data: { cost: totalCost}
+    });
+  }
+
+  // Buscar productos por categoria
+  async findByCategory(categoryId: number){
+    return await this.prisma.product.findMany({
+      where: {
+        categoryId: categoryId,
+        isActive: true  // Solo busca los productos activos
+      },
+      include:{
+        category: true //Para mostrar el nombre de la categoria en la respuesta
+      },
     });
   }
 }

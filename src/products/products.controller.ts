@@ -60,6 +60,12 @@ export class ProductsController {
     return this.productsService.getSlowStockAlerts();
   }
 
+  // Buscar productos por categoria
+  @Get('category/:categoryId')
+  findByCategory(@Param('categoryId', ParseIntPipe) categoryId: number){
+    return this.productsService.findByCategory(categoryId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(+id);
