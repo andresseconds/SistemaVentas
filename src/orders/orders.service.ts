@@ -2,10 +2,23 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrdersGateway } from './orders.gateway';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private ordersGateway: OrdersGateway
+  ) { }
+
+  async createOrder(data: any) {
+    const newOrder = await this.prisma.order.create({ data });
+
+    // ¡Aquí ocurre la magia! El PC recibirá esto al instante
+    this.ordersGateway.emitNewOrder(newOrder);
+
+    return newOrder;
+  }
 
   async create(createOrderDto: CreateOrderDto) {
     const { tableId, items } = createOrderDto; // Es lo mismo que const tableId = createOrderDto.tableId;
