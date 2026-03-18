@@ -13,4 +13,9 @@ export class ReportsController {
     ){
         return this.reportsService.getSalesByProductAndRange(productId, start, end);
     }
+
+    @Get('daily-summary')
+    getDailySummary(){
+        return this.reportsService.getDailySummary();
+    }
 }
