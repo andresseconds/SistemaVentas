@@ -7,18 +7,12 @@ export const useSocket = () => {
 
   useEffect(() => {
     // 1. Detectamos automáticamente la IP de donde viene la página
-    // Si abres la web en la tablet, esto será '192.168.1.22'
-    // Si la abres en la PC, esto será 'localhost'
-    const IP_FIJA = '192.168.1.100';
-    const serverUrl = `http://${IP_FIJA}:3000`;
-
-    console.log("Intentando conectar socket a:", serverUrl);
-
-    const socketInstance = io(serverUrl, {
+    const serverIp = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    
+    // Se conecta dinámicamente usando esa IP
+    const socketInstance = io(`http://${serverIp}:3000`, {
       transports: ['websocket'],
-      forceNew: true,
-      reconnection: true,
-      path: '/socket.io/',
+      reconnectionAttempts: 5
     });
 
     socketInstance.on('bienvenida', (data) => {

@@ -6,13 +6,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // CORS Dinámico: Acepta cualquier origen automáticamente
   app.enableCors({
-    origin: '*', // Permite cualquier origen (PC, Tablet, Celular)
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: true, // Al poner "origin: true", NestJS acepta dinámicamente la IP de quien le hable
     credentials: true,
   });
 
-  // DEBE quedar así para que acepte conexiones de la red WiFi
+  // Escucha en todas las interfaces de la red
   await app.listen(3000, '0.0.0.0');
   console.log(`Backend corriendo en el puerto 3000`);
 }
