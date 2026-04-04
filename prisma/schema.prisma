@@ -1,0 +1,121 @@
+// Configuración del motor
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. INVENTARIO
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  price       Float
+  cost        Float    @default(0)
+  stock       Int      @default(0)
+  minStock    Int      @default(5)
+  categoryId  Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category      Category     @relation(fields: [categoryId], references: [id])
+  items         OrderItem[]
+  inventoryLogs InventoryLog[]
+  // Un producto puede ser un ingrediente en muchas recetas
+  usedInRecipes RecipeItem[]  @relation("Ingredient")
+  // Un producto puede tener una receta (muchos ingredientes)
+  recipe        RecipeItem[]  @relation("MainProduct")
+}
+
+// 2. CATEGORIA
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+// 3. MESAS
+model Table {
+  id          Int      @id @default(autoincrement())
+  number      String   @unique // Ej: "Mesa 1", "Barra 2"
+  capacity    Int      @default(2)
+  description String?
+  status      String   @default("AVAILABLE") // AVAILABLE, OCCUPIED, RESERVED
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders Order[]
+}
+
+// 4. PEDIDOS / FACTURAS
+model Order {
+  id        Int         @id @default(autoincrement())
+  tableId   Int
+  table     Table       @relation(fields: [tableId], references: [id])
+  items     OrderItem[] // Relación con los productos específicos
+  total     Float       @default(0)
+  status    OrderStatus @default(PENDING)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// 5. ITEMS DE LA ORDEN
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float // Guardamos el precio del momento de la venta
+}
+
+// 6. ESTADO DE LA ORDEN
+enum OrderStatus {
+  PENDING
+  PREPARING
+  DELIVERED
+  PAID
+  CANCELLED
+}
+
+// 7. AGREGA TIPO DE MOVIMIENTOS POSIBLES
+enum MovementType {
+  SALE // Resta  por venta
+  MANUAL_ADJUST // Suma/Resta por el administrador
+  CANCELLATION // Suma por orden cancelada 
+}
+
+// 8. HISTORIAL DE CAMBIOS EN INVENTARIO
+model InventoryLog {
+  id        Int          @id @default(autoincrement())
+  productId Int
+  product   Product      @relation(fields: [productId], references: [id])
+  quantity  Int // Cuánto se movió (ej: -2, +10)
+  type      MovementType
+  reason    String? // Por qué ocurrió (ej: "Venta Mesa 5", "Merma", "Proveedor")
+  createdAt DateTime     @default(now())
+}
+
+// 9. Receta
+model RecipeItem{
+  id            Int     @id @default(autoincrement())
+  
+  //El producto que "se vende"(ej: Capuchino)
+  productId     Int
+  product       Product @relation("MainProduct", fields: [productId], references: [id])
+
+  //El ingrediente que "se gasta" (ej: leche)
+  ingredientId  Int
+  ingredient    Product @relation("Ingredient", fields: [ingredientId], references: [id])
+
+  //Cuánto de ese ingrediente se usa (ej: 200ml)
+  quantity       Float
+
+  @@unique([productId, ingredientId]) //Un ingrediente no puede estardos veces en la misma receta 
+}
