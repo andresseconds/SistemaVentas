@@ -51,6 +51,12 @@ model Table {
   orders Order[]
 }
 
+enum PaymentMethod {
+  CASH        // Efectivo
+  CARD        // Tarjeta
+  TRANSFER    // Transferencia (Nequi, Daviplata, etc.)
+}
+
 // 4. PEDIDOS / FACTURAS
 model Order {
   id        Int         @id @default(autoincrement())
@@ -59,6 +65,7 @@ model Order {
   items     OrderItem[] // Relación con los productos específicos
   total     Float       @default(0)
   status    OrderStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -73,6 +80,7 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float // Guardamos el precio del momento de la venta
+  notes     String?
 }
 
 // 6. ESTADO DE LA ORDEN
