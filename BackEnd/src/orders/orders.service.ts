@@ -11,17 +11,35 @@ export class OrdersService {
     private ordersGateway: OrdersGateway
   ) { }
 
-  async createOrder(data: any) {
-    const newOrder = await this.prisma.order.create({ data });
+  
+  // Agregar items a la orden
+  async addItemsToOrder(orderId: number, newItems: any[]){
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
 
-    // ¡Aquí ocurre la magia! El PC recibirá esto al instante
-    this.ordersGateway.emitNewOrder(newOrder);
+    if (!order) {
+      throw new NotFoundException(`Orden con ID ${orderId} no encontrada`);
+    }
 
-    return newOrder;
+    // Calculamos el costo de lo nuevo
+    const additionalTotal = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    return await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        total: order.total + additionalTotal, // Sumamos al total existente
+        items: {
+          create: newItems.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          }))
+        }
+      }
+    });
   }
 
   async create(createOrderDto: CreateOrderDto) {
-    const { tableId, items } = createOrderDto; // Es lo mismo que const tableId = createOrderDto.tableId;
+    const { tableId, items, alias } = createOrderDto; // Es lo mismo que const tableId = createOrderDto.tableId;
 
     // 1. Validar que la mesa existe y está activa
     const table = await this.prisma.table.findUnique({
@@ -128,6 +146,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           tableId: table.id,
+          alias: alias, 
           total: totalAmount,
           status: 'PENDING', //Crea la oreden en esatdo pendiente
           items: {
@@ -339,24 +358,63 @@ export class OrdersService {
     };
   }
 
+  // Buscar cuanto debe la mesa
+  async findActiveByTable(tableId: number) {
+    const activeOrder = await this.prisma.order.findFirst({
+      where: {
+        tableId: tableId,
+        status: { not: 'PAID' } // Buscamos la orden que no este pagada
+      },
+      include: {
+        items: {
+          include: { product: true }
+        }
+      }
+
+    });
+
+    if (!activeOrder) {
+      throw new Error('No hay una orden activa para esta mesa');
+    }
+
+    return activeOrder;
+  }
+
+  // El checkout marca la orden como PAID
   // Cierra la cuenta y libera la mesa
-  async checkoutTable(tableId: number){
+  async checkoutTable(tableId: number, paymentMethod: any) {
     //1. Verificamos que la mesa exista
     const table = await this.prisma.table.findUnique({
       where: { id: tableId }
     });
 
-    if(!table){
+    if (!table) {
       throw new Error('La mesa no existe');
     }
 
-    //2. Cambiamos el estado de la mesa a AVAILABLE (Libre)
-    // Nota: Si en tu modelo de Order tienes un campo de status (ej. 'PAID'), 
-    // también deberías actualizar la orden aquí. Por ahora liberamos la mesa.
+    // Cambiamos el estado de la mesa a AVAILABLE (Libre)
     const updatedTable = await this.prisma.table.update({
       where: { id: tableId },
       data: { status: 'AVAILABLE' }
     });
+
+    // Buscamos la orden activa y la actualizamos con el pago
+    const activeOrder = await this.prisma.order.findFirst({
+      where: {
+        tableId: tableId,
+        status: { not: 'PAID' }
+      }
+    });
+
+    if (activeOrder) {
+      await this.prisma.order.update({
+        where: { id: activeOrder.id },
+        data: {
+          paymentMethod: paymentMethod, // CASH, CARD o TRANSFER
+          status: 'PAID'
+        }
+      });
+    }
 
     return {
       message: `Mesa ${updatedTable.number} liberada con éxito`,

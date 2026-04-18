@@ -5,7 +5,7 @@ import { UpdateTableDto } from './dto/update-table.dto';
 
 @Injectable()
 export class TablesService {
-  constructor(private prisma: PrismaService){}
+  constructor(private prisma: PrismaService) { }
 
   async create(createTableDto: CreateTableDto) {
     return await this.prisma.table.create({
@@ -17,15 +17,21 @@ export class TablesService {
     });
   }
 
-  async findAll() {
-    return await this.prisma.table.findMany({
-      where: {isActive : true}
+  findAll() {
+    return this.prisma.table.findMany({
+      include: {
+        // Traemos la orden activa para poder leer su alias en el frontend
+        orders: {
+          where: { status: { not: 'PAID' } },
+        }
+      },
+      orderBy: { id: 'asc' } // Opcional: para que siempre salgan en orden
     });
   }
 
   async findOne(id: number) {
     const table = await this.prisma.table.findUnique({
-      where: {id}
+      where: { id }
     });
 
     if (!table) {
@@ -39,7 +45,7 @@ export class TablesService {
     await this.findOne(id);
 
     return await this.prisma.table.update({
-      where : {id},
+      where: { id },
       data: updateTableDto,
     });
   }
@@ -49,14 +55,14 @@ export class TablesService {
     await this.findOne(id);
 
     return await this.prisma.table.update({
-      where: {id},
-      data: { isActive: false},
+      where: { id },
+      data: { isActive: false },
     });
   }
 
-  async findOccupied(){
+  async findOccupied() {
     return await this.prisma.table.findMany({
-      where:{
+      where: {
         status: 'OCCUPIED',
         isActive: true,
       }

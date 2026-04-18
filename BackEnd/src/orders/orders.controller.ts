@@ -9,6 +9,7 @@ export class OrdersController {
 
   @Post()
   create(@Body() createOrderDto: CreateOrderDto) {
+    console.log("2. LLEGÓ AL CONTROLADOR:", createOrderDto);
     return this.ordersService.create(createOrderDto);
   }
 
@@ -30,9 +31,19 @@ export class OrdersController {
     return this.ordersService.findAll();
   }
 
+  @Get('table/:tableId/active')
+  findActiveByTable(@Param('tableId') tableId: string) {
+    return this.ordersService.findActiveByTable(Number(tableId));
+  }
+
   @Patch('checkout/:tableId')
-  async checkoutTable(@Param('tableId') tableId: string){
-    return await this.ordersService.checkoutTable(Number(tableId));
+  async checkoutTable(@Param('tableId') tableId: string, @Body('paymentMethod') paymentMethod: string){
+    return await this.ordersService.checkoutTable(Number(tableId), paymentMethod);
+  }
+
+  @Patch(':id/add-items')
+  addItems(@Param('id') id: string, @Body() body: { items: any[] }) {
+    return this.ordersService.addItemsToOrder(Number(id), body.items);
   }
 
   @Get(':id')
