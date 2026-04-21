@@ -20,7 +20,7 @@ import { Server, Socket } from 'socket.io';
 
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   handleConnection(client: Socket) {
     console.log(`Cliente conectado: ${client.id}`);

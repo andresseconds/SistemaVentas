@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrdersGateway } from './orders.gateway';
+import { PaymentMethod, OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
@@ -11,9 +12,9 @@ export class OrdersService {
     private ordersGateway: OrdersGateway
   ) { }
 
-  
+
   // Agregar items a la orden
-  async addItemsToOrder(orderId: number, newItems: any[]){
+  async addItemsToOrder(orderId: number, newItems: any[]) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
 
     if (!order) {
@@ -50,9 +51,9 @@ export class OrdersService {
       throw new NotFoundException(`La mesa con ID ${tableId} no existe o está inactiva.`);
     }
 
-    if (table.status === 'OCCUPIED') {
+    /*if (table.status === 'OCCUPIED') {
       throw new BadRequestException(`La mesa ${tableId} ya esta ocupada. Debes cerrar la orden anterior para poder crear una nueva.`)
-    }
+    }*/
 
     // 2. Iniciar transacción
     return await this.prisma.$transaction(async (tx) => {
@@ -146,7 +147,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           tableId: table.id,
-          alias: alias, 
+          alias: alias,
           total: totalAmount,
           status: 'PENDING', //Crea la oreden en esatdo pendiente
           items: {
@@ -382,7 +383,7 @@ export class OrdersService {
 
   // El checkout marca la orden como PAID
   // Cierra la cuenta y libera la mesa
-  async checkoutTable(tableId: number, payments: {method: any, amount: number}[]) {
+  async checkoutTable(tableId: number, payments: { method: any, amount: number }[]) {
     //1. Verificamos que la mesa exista
     const table = await this.prisma.table.findUnique({
       where: { id: tableId }
@@ -406,7 +407,7 @@ export class OrdersService {
 
     // Verificamos que la suma de los pagos cubra la cuenta
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-    if(totalPaid < activeOrder.total){
+    if (totalPaid < activeOrder.total) {
       throw new Error(`Fondos insuficientes. La cuenta es de $${activeOrder.total} pero solo se están pagando $${totalPaid}`);
     }
 
@@ -434,6 +435,58 @@ export class OrdersService {
       message: `Mesa ${updatedTable.number} liberada con éxito`,
       table: updatedTable
     };
+  }
+
+  // Pagar orden
+  async checkoutOrder(orderId: number, payments: { method: string; amount: number }[]) {
+    // 1. Buscamos a qué mesa pertenece esta cuenta
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { tableId: true }
+    });
+
+    if (!order) throw new NotFoundException('La cuenta no existe');
+
+    // 2. Usamos una Transacción para asegurar que todo se actualice de forma segura
+    await this.prisma.$transaction(async (tx) => {
+      //A. Marcamos esta cuenta especifica como marcada
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: OrderStatus.PAID }
+      });
+
+      // B. Guardamos el registro exacto de con qué pagaron en la tabla OrderPayment
+      if (payments && payments.length > 0) {
+        await tx.orderPayment.createMany({
+          data: payments.map(p => ({
+            orderId: orderId,
+            amount: p.amount,
+            method: p.method as PaymentMethod
+          }))
+        });
+      }
+
+      // C. Averiguamos si hay OTRAS cuentas activas en la misma mesa.
+      // Buscamos cualquier cuenta que NO esté pagada ni cancelada.
+      const pendingOrdersCount = await tx.order.count({
+        where: {
+          tableId: order.tableId,
+          status: {
+            in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.DELIVERED]
+          }
+        }
+      });
+
+      // D. Si el contador es 0 (era la última cuenta), liberamos la mesa
+      if (pendingOrdersCount === 0) {
+        await tx.table.update({
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' } // Usamos el string exacto de tu default
+        });
+      }
+    });
+
+    return { success: true, message: 'Cuenta cobrada con éxito' };
   }
 
 }

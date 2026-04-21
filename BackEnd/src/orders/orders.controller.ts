@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -33,6 +33,14 @@ export class OrdersController {
   @Get('table/:tableId/active')
   findActiveByTable(@Param('tableId') tableId: string) {
     return this.ordersService.findActiveByTable(Number(tableId));
+  }
+
+  @Patch('checkout/:id')
+  async checkoutOrder(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body('payments') payments: { method: string; amount: number }[]
+  ) {
+    return this.ordersService.checkoutOrder(orderId, payments);
   }
 
   @Patch('checkout/:tableId')
